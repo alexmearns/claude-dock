@@ -14,21 +14,31 @@ jobs:
   auto-tag:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      tagged: ${{ steps.tag.outputs.tagged }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Create tag if version is new
+      - name: Get version
+        id: get-version
         run: |
           VERSION=$(python -c "import re; m=re.search(r'__version__\s*=\s*\"(.+?)\"', open('dock.py').read()); print(m.group(1))")
-          TAG="v$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Tag if new
+        id: tag
+        run: |
+          TAG="v${{ steps.get-version.outputs.version }}"
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
             echo "Tag $TAG already exists, skipping release"
+            echo "tagged=false" >> $GITHUB_OUTPUT
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$TAG"
             git push origin "$TAG"
+            echo "tagged=true" >> $GITHUB_OUTPUT
           fi
 
   test:
@@ -46,21 +56,26 @@ jobs:
         run: python -m unittest discover tests -v
 
   build:
-    needs: test
+    needs: [test, auto-tag]
+    if: |
+      always() &&
+      needs.test.result == 'success' &&
+      (
+        needs.auto-tag.result == 'skipped' ||
+        needs.auto-tag.outputs.tagged == 'true' ||
+        startsWith(github.ref, 'refs/tags/v')
+      )
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
-            artifact: Claude Dock.exe
             upload-name: claude-dock-windows
             upload-path: Claude Dock.exe
           - os: macos-latest
-            artifact: Claude Dock.app
             upload-name: claude-dock-macos
             upload-path: claude-dock-macos.zip
           - os: ubuntu-latest
-            artifact: claude-dock
             upload-name: claude-dock-linux
             upload-path: claude-dock
 
@@ -94,7 +109,8 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: needs.auto-tag.outputs.tagged == 'true' || startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.auto-tag.outputs.tagged == 'true' && format('v{0}', needs.auto-tag.outputs.version) || github.ref_name }}
           files: ${{ matrix.upload-path }}
