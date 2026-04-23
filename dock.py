@@ -610,12 +610,14 @@ class Session:
                 # doesn't trigger Windows' "Terminate batch job (Y/N)?" prompt.
                 # Passed as a string (not a list) so Python's list2cmdline doesn't
                 # escape the inner quotes with \", which cmd.exe misparses as paths.
+                # Paths go into env vars first so cd and copy expand %VAR% rather
+                # than embedding raw backslash strings that cmd may mis-tokenise.
                 cmd_line = (
                     f'title {self._title}'
                     f' & set "CLAUDE_DOCK_SESSION_ID={self.id}"'
                     f' & cd /d "{self._folder}"'
                     f' & claude'
-                    f' & type nul > "{self._done}"'
+                    f' & copy /y nul "{self._done}" 1>nul 2>nul'
                 )
                 self._proc = subprocess.Popen(
                     f'cmd.exe /K {cmd_line}',
@@ -768,13 +770,17 @@ class Session:
                 try: os.remove(self._running)
                 except Exception: pass
                 self.status = "running"
-                for cb in self._running_cbs: cb(self)
+                for cb in self._running_cbs:
+                    try: cb(self)
+                    except Exception: pass
 
             if os.path.exists(self._idle):
                 try: os.remove(self._idle)
                 except Exception: pass
                 self.status = "idle"
-                for cb in self._idle_cbs: cb(self)
+                for cb in self._idle_cbs:
+                    try: cb(self)
+                    except Exception: pass
 
             if os.path.exists(self._done):
                 break
@@ -797,7 +803,9 @@ class Session:
 
         self.status = "done"
         self._end   = datetime.now()
-        for cb in self._done_cbs: cb(self)
+        for cb in self._done_cbs:
+            try: cb(self)
+            except Exception: pass
 
     def cleanup(self):
         for ext in (".done", ".idle", ".running", ".sh", ".pid"):
