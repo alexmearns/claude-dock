@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+.venv/
+*.egg-info/
+
+# Build artifacts (distributed via GitHub Releases, not committed)
+build/
+dist/
+*.spec
+Claude Dock.exe
+Claude Dock.app/
+claude-dock
+claude-dock-macos.zip
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Runtime state (lives in ~/.claude-dock/)
