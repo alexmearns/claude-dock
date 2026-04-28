@@ -42,13 +42,17 @@ jobs:
           fi
 
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install tkinter
+      - name: Install tkinter (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-tk
@@ -71,7 +75,7 @@ jobs:
         include:
           - os: windows-latest
             upload-name: claude-dock-windows
-            upload-path: Claude Dock.exe
+            upload-path: claude-dock.exe
           - os: macos-latest
             upload-name: claude-dock-macos
             upload-path: claude-dock-macos.zip

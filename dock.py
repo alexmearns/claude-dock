@@ -681,18 +681,15 @@ class Session:
 
     def _capture_hwnd(self, before_hwnds):
         """Find and configure the new terminal window (Windows only)."""
-        buf      = ctypes.create_unicode_buffer(256)
         deadline = time.time() + 15
         while time.time() < deadline:
-            after = _all_hwnds()
-            for hwnd in (after - before_hwnds):
-                _u32.GetWindowTextW(hwnd, buf, 256)
-                if buf.value:
-                    self._hwnd = hwnd
-                    if self._hide_taskbar:
-                        _hide_from_taskbar(hwnd)
-                        _disable_close_button(hwnd)
-                    return
+            hwnd = _find_hwnd_by_title(self._title)
+            if hwnd:
+                self._hwnd = hwnd
+                if self._hide_taskbar:
+                    _hide_from_taskbar(hwnd)
+                    _disable_close_button(hwnd)
+                return
             time.sleep(0.3)
 
     def _minimize_guard(self):
